@@ -8,7 +8,7 @@ A Standalone CLI tool and library for working with RSA PSS keys and using them.
 
 The default `make` target for this project produces the binary `rsapss-tool`.
 
-The `go install` tool can be used to install the binary in `$GOPATH/bin` **if** you have this project directory in your `$GOPATH`.
+The `go install` tool can be used to install the binary in `$GOPATH/bin` _**if**_ you have this project directory in your `$GOPATH`.
 
 ### CLI Tool
 
@@ -57,7 +57,7 @@ See the tool's help output for the names of envvars that corresond to command op
 
 #### Program output
 
-Output from the tool to `stdout` is intended for programmatic use—this is useful when authoring a script to sign content and capture only a generated signature, for instance. As a consequence, `stderr` is used to report both informational and error messages. Use the familiar Bash output handling mechanisms (`2>`, `1>`) to isolate `stdout` output.
+Output from the tool to `stdout` is intended for programmatic use — this is useful when authoring a script to sign content and capture only a generated signature, for instance. As a consequence, `stderr` is used to report both informational and error messages. Use the familiar Bash output handling mechanisms (`2>`, `1>`) to isolate `stdout` output.
 
 Verification output to stdout is guaranteed to be stable. The text `SIGOK` will be printed to stdout iff a signature is verified. `SIGINVALID` indicates verification failure with key material, signature and input data that passed format and content checks.
 
