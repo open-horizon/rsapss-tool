@@ -9,11 +9,11 @@
 			"revisionTime": "2017-03-29T01:35:17Z"
 		},
 		{
-			"checksumSHA1": "wO8pAbpe3dgtwk4/kzPskXbYrhY=",
+			"checksumSHA1": "/+BVh0IG8cor1DhtNQWDfqwIwQ0=",
 			"path": "golang.org/x/sys/unix",
 			"revision": "9d4e42a20653790449273b3c85e67d6d8bae6e2e",
 			"revisionTime": "2016-03-04T09:29:42Z"
 		}
 	],
-	"rootPath": "github.com/michaeldye/rsapss-tool"
+	"rootPath": "github.com/open-horizon/rsapss-tool"
 }

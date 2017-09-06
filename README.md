@@ -4,13 +4,13 @@ A Standalone CLI tool and library for working with RSA PSS keys and using them.
 
 ## Use
 
-### CLI Tool
+### Building and installing
 
 The default `make` target for this project produces the binary `rsapss-tool`.
 
-#### Installation
+The `go install` tool can be used to install the binary in `$GOPATH/bin` **if** you have this project directory in your `$GOPATH`.
 
-The `go install` tool can be used to install the binary in `$GOPATH/bin` but, unfortunately, this only works if you copy the project to a proper `$GOPATH` and invoke the tool there. Another option is to copy the produced binary to a convenient place in your `$PATH`.
+### CLI Tool
 
 #### Inline help
 
@@ -39,7 +39,7 @@ The CLI binary includes help:
        --version, -v  print the version
     [INFO] Exiting.
 
-#### Sample use
+#### Sample invocation
 
     rsapss-tool gk --keylength 1024 --outputdir /tmp
     printf "somecontent" | rsapss-tool sign --privatekey /tmp/private.key > /tmp/somecontent.signature
@@ -61,11 +61,11 @@ See integration tests like [sign_int_test.go](sign/sign_int_test.go) for example
 
 ### Make information
 
-The `Makefile` in this project fiddles with the `$GOPATH` and fetches dependencies so that `make` targets can be executed outside of the `$GOPATH`. Some of this tomfoolery is hidden in normal build output. To see `make`'s progress, execute `make` with the argument `VERBOSE=y`.
+The `Makefile` in this project fiddles with the `$GOPATH` and fetches dependencies so that `make` targets can be executed outside of the `$GOPATH`. Some of this tomfoolery is hidden in normal build output. To see `make`'s progress, execute `make` with the argument `verbose=y`.
 
 Notable `make` targets include:
 
- * `all` - Compile source and produce `rsapss-tool` binary
+ * `all` (default) - Compile source and produce `rsapss-tool` binary
  * `clean` - Clean build artifacts
  * `lint` - Execute Golang code analysis tools to report ill code style
  * `check` - Execute both unit and integration tests
