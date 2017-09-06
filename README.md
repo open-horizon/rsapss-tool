@@ -39,9 +39,11 @@ The CLI binary includes help:
        --version, -v  print the version
     [INFO] Exiting.
 
-#### Sample invocation
+#### Sample invocations
 
-    rsapss-tool gk --keylength 1024 --outputdir /tmp
+ Below is a sequence of commands showing generation of new RSA PSS keys and use of them. Different forms of configuration options are used to show variety of supported invocations.
+
+    rsapss-tool gk --keylength 8192 --outputdir /tmp
     printf "somecontent" | rsapss-tool sign --privatekey /tmp/private.key > /tmp/somecontent.signature
     printf "somecontent" | rsapss-tool verify --publickey /tmp/public.key -x /tmp/somecontent.signature 2>/dev/null | grep SIG
     printf "some OTHER content" | rsapss-tool verify --publickey /tmp/public.key -x /tmp/somecontent.signature
@@ -52,6 +54,19 @@ It's possible to specify command options with envvars, for instance `--debug` ca
     printf "some OTHER content" | RSAPSSTOOL_DEBUG=true rsapss-tool verify --publickey /tmp/public.key -x /tmp/somecontent.signature
 
 See the tool's help output for the names of envvars that corresond to command options.
+
+#### Program output
+
+Output from the tool to `stdout` is intended for programmatic use—this is useful when authoring a script to sign content and capture only a generated signature, for instance. As a consequence, `stderr` is used to report both informational and error messages. Use the familiar Bash output handling mechanisms (`2>`, `1>`) to isolate `stdout` output.
+
+Verification output to stdout is guaranteed to be stable. The text `SIGOK` will be printed to stdout iff a signature is verified. `SIGINVALID` indicates verification failure with key material, signature and input data that passed format and content checks.
+
+#### Exit status codes
+
+The following error codes are produced by the CLI tool under described conditions:
+
+ * **3**: CLI invocation error or user input error (for instance, a specified public key file could not be read or was ill-formatted)
+ * **5**: Provided PSS signature is **not valid** for the given input and public key
 
 ### Library
 
