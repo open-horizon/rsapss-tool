@@ -6,7 +6,15 @@ A Standalone CLI tool and library for working with RSA PSS keys and using them.
 
 ### CLI Tool
 
-The default `make` target for this project produces the binary `rsapss-tool`. The tool includes argument and mode help:
+The default `make` target for this project produces the binary `rsapss-tool`.
+
+#### Installation
+
+The `go install` tool can be used to install the binary in `$GOPATH/bin` but, unfortunately, this only works if you copy the project to a proper `$GOPATH` and invoke the tool there. Another option is to copy the produced binary to a convenient place in your `$PATH`.
+
+#### Inline help
+
+The CLI binary includes help:
 
     rsapss-tool --help
 
@@ -31,7 +39,7 @@ The default `make` target for this project produces the binary `rsapss-tool`. Th
        --version, -v  print the version
     [INFO] Exiting.
 
-#### Sample use:
+#### Sample use
 
     rsapss-tool gk --keylength 1024 --outputdir /tmp
     printf "somecontent" | rsapss-tool sign --privatekey /tmp/private.key > /tmp/somecontent.signature
