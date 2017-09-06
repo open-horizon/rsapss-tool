@@ -57,7 +57,11 @@ func generateNewKeysAction(ctx *cli.Context) error {
 		fmt.Fprintf(os.Stderr, "%s Error generating new keys: %v\n", outputErrorPrefix, err)
 		return cli.NewExitError("Failed to generate new keys", 3)
 	}
-	fmt.Fprintf(os.Stderr, "%s Wrote keys %v\n", outputInfoPrefix, newKeys)
+	fmt.Fprintf(os.Stderr, "%s Sucessfully generated new keys %v\n", outputInfoPrefix, newKeys)
+	fmt.Println("Wrote keys:")
+	for _, key := range newKeys {
+		fmt.Printf("\t%v\n", key)
+	}
 
 	return nil
 }
@@ -86,12 +90,12 @@ func signAction(ctx *cli.Context) error {
 }
 
 func verifyAction(ctx *cli.Context) error {
-	key := ctx.String("publickey")
-	if key == "" {
+	keyPath := ctx.String("publickey")
+	if keyPath == "" {
 		return cli.NewExitError("Required option 'publickey' not provided. Use the '--help' option for more information.", 2)
 	}
 
-	fmt.Fprintf(os.Stderr, "%s using publickey: %v\n", outputInfoPrefix, key)
+	fmt.Fprintf(os.Stderr, "%s using publickey: %v\n", outputInfoPrefix, keyPath)
 
 	inputBytes, err := readInput(os.Stdin, ctx.GlobalBool("debug"))
 	if err != nil {
@@ -114,7 +118,7 @@ func verifyAction(ctx *cli.Context) error {
 		return err
 	}
 
-	verified, err := verify.Input(key, inputBytes, signatureBytes)
+	verified, err := verify.Input(keyPath, string(signatureBytes), inputBytes)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s %v\n", outputInfoPrefix, err)
 		return cli.NewExitError("Unable to verify signature", 2)

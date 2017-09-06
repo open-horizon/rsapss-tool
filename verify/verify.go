@@ -11,50 +11,68 @@ import (
 	"io/ioutil"
 )
 
+// KeyMapping is a simple container for (key, signature) pairs
+type KeyMapping struct {
+	PublicKeyPath string
+	Signature     string
+}
+
+func (m *KeyMapping) String() string {
+	return fmt.Sprintf("PublicKeyPath: %v, Signature: %v", m.PublicKeyPath, m.Signature)
+}
+
 // Input takes given publicKeyPath, input byte array, and signature string.
 // This function returns true iff the signature of the input can be verified by
 // the public key.
-func Input(publicKeyPath string, input []byte, signature []byte) (bool, error) {
-	return InputVerifiedByAll([]string{publicKeyPath}, input, signature)
+func Input(publicKeyPath string, signature string, input []byte) (bool, error) {
+
+	verified, _, err := InputVerifiedByAll([]*KeyMapping{&KeyMapping{publicKeyPath, signature}}, input)
+	return verified, err
 }
 
-// InputVerifiedByAll returns true iff the signature of the input is
-// verified by all of the specified keyfiles.
-func InputVerifiedByAll(publicKeyPaths []string, input []byte, signature []byte) (bool, error) {
+// InputVerifiedByAll returns true iff the signature of the input is verified
+// by all of the specified keyfiles. In case of errors processing keyfiles, an
+// error will be returned. In case of verification failure, all failed
+// KeyMappings will be returned.
+func InputVerifiedByAll(keyMappings []*KeyMapping, input []byte) (bool, []*KeyMapping, error) {
+	var failed []*KeyMapping
+
 	hasher := sha256.New()
 	_, err := hasher.Write(input)
 	if err != nil {
-		return false, err
+		return false, failed, err
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(string(signature))
-	if err != nil {
-		return false, err
+	if len(keyMappings) == 0 {
+		return false, failed, fmt.Errorf("No keymappings provided; input not verified")
 	}
 
-	// check provided keys until we get a match
-	for _, keyPath := range publicKeyPaths {
-		pubkey, err := ioutil.ReadFile(keyPath)
+	for _, keyMapping := range keyMappings {
+		pubkeyRaw, err := ioutil.ReadFile(keyMapping.PublicKeyPath)
 		if err != nil {
-			return false, err
+			return false, failed, err
 		}
 
-		block, _ := pem.Decode(pubkey)
+		block, _ := pem.Decode(pubkeyRaw)
 		if block == nil {
-			return false, fmt.Errorf("Unable to find PEM block in the provided publick key: %v", keyPath)
+			return false, failed, fmt.Errorf("Unable to find PEM block in the provided public key: %v", keyMapping.PublicKeyPath)
 		}
 
-		publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+		pubkey, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
-			return false, err
+			return false, failed, err
 		}
 
-		err = rsa.VerifyPSS(publicKey.(*rsa.PublicKey), crypto.SHA256, hasher.Sum(nil), decoded, nil)
+		signature, err := base64.StdEncoding.DecodeString(keyMapping.Signature)
 		if err != nil {
-			return false, nil
+			return false, failed, err
+		}
+
+		if err := rsa.VerifyPSS(pubkey.(*rsa.PublicKey), crypto.SHA256, hasher.Sum(nil), signature, nil); err != nil {
+			failed = append(failed, &KeyMapping{keyMapping.PublicKeyPath, keyMapping.Signature})
 		}
 	}
 
 	// if the signature was verified by all of the given keys we return true
-	return true, nil
+	return len(failed) == 0, failed, nil
 }

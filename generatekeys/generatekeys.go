@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 )
 
+// MinAcceptableKeyLength specifies the smallest acceptable key length this tool will generate
+const MinAcceptableKeyLength = 1024
+
 // Returns composed path if there is not a name conflict and the directory is
 // writable.
 func pathIsAvail(dir string, file string) (string, error) {
@@ -40,6 +43,10 @@ func Write(outputDir string, keyLength int) ([]string, error) {
 
 	if outputDir == "" {
 		return empty, errors.New("Required parameter outputDir has invalid value, nil")
+	}
+
+	if keyLength < MinAcceptableKeyLength {
+		return empty, fmt.Errorf("Illegal input: keyLength value %d is shorter than the minimum allowed %v", keyLength, MinAcceptableKeyLength)
 	}
 
 	pubPath, err := pathIsAvail(outputDir, "public.key")
