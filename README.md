@@ -47,6 +47,8 @@ See the tool's help output for the names of envvars that corresond to command op
 
 ### Library
 
+See integration tests like [sign_int_test.go](sign/sign_int_test.go) for example usage.
+
 ## Development
 
 ### Make information
