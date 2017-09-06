@@ -5,7 +5,7 @@ package sign
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/michaeldye/rsapss-tool/verify"
+	"github.com/open-horizon/rsapss-tool/verify"
 	"io/ioutil"
 	"os"
 	"path/filepath"

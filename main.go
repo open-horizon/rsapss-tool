@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/michaeldye/rsapss-tool/generatekeys"
-	"github.com/michaeldye/rsapss-tool/sign"
-	"github.com/michaeldye/rsapss-tool/verify"
+	"github.com/open-horizon/rsapss-tool/generatekeys"
+	"github.com/open-horizon/rsapss-tool/sign"
+	"github.com/open-horizon/rsapss-tool/verify"
 	"github.com/urfave/cli"
 	"io"
 	"io/ioutil"
@@ -72,7 +72,7 @@ func signAction(ctx *cli.Context) error {
 		return cli.NewExitError("Required option 'privatekey' not provided. Use the '--help' option for more information.", 2)
 	}
 
-	fmt.Fprintf(os.Stderr, "%s using privatekey: %v\n", outputInfoPrefix, key)
+	fmt.Fprintf(os.Stderr, "%s Using privatekey: %v\n", outputInfoPrefix, key)
 
 	bytes, err := readInput(os.Stdin, ctx.GlobalBool("debug"))
 	if err != nil {
@@ -95,7 +95,7 @@ func verifyAction(ctx *cli.Context) error {
 		return cli.NewExitError("Required option 'publickey' not provided. Use the '--help' option for more information.", 2)
 	}
 
-	fmt.Fprintf(os.Stderr, "%s using publickey: %v\n", outputInfoPrefix, keyPath)
+	fmt.Fprintf(os.Stderr, "%s Using publickey: %v\n", outputInfoPrefix, keyPath)
 
 	inputBytes, err := readInput(os.Stdin, ctx.GlobalBool("debug"))
 	if err != nil {

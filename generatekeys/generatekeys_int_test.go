@@ -3,8 +3,8 @@
 package generatekeys
 
 import (
-	"github.com/michaeldye/rsapss-tool/sign"
-	"github.com/michaeldye/rsapss-tool/verify"
+	"github.com/open-horizon/rsapss-tool/sign"
+	"github.com/open-horizon/rsapss-tool/verify"
 	"io/ioutil"
 	"os"
 	"path/filepath"
