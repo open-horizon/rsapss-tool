@@ -56,9 +56,12 @@ ifneq ($(GOPATH),$(TMPGOPATH))
 	fi
 endif
 
-
 clean:
 	rm -f $(EXECUTABLE)
+	find ./vendor -maxdepth 1 -not -path ./vendor -and -not -iname "vendor.json" -print0 | xargs -0 rm -Rf
+ifneq ($(TMPGOPATH),$(GOPATH))
+	rm -rf $(TMPGOPATH)
+endif
 
 lint:
 	-golint ./... | grep -v "vendor/"
