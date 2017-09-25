@@ -72,7 +72,7 @@ lint:
 # only unit tests
 test: deps
 	cd $(PKGPATH) && \
-    GOPATH=$(TMPGOPATH) go test -v -cover $(PKGS)
+    GOPATH=$(TMPGOPATH) go test -v -cover -tags=unit $(PKGS)
 
 test-integration: deps
 	cd $(PKGPATH) && \
