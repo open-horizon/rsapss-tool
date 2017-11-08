@@ -53,7 +53,7 @@ QwIDAQAB
 	},
 }
 
-func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping) {
+func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping, []*KeyMapping) {
 	dir, err := ioutil.TempDir("", "verify-")
 	if err != nil {
 		t.Error(err)
@@ -61,6 +61,7 @@ func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping) {
 
 	var allKeyMappings []*KeyMapping
 	var onlyValidKeyMappings []*KeyMapping
+	var onlyBogusKeyMappings []*KeyMapping
 	var retC string
 
 	for content, keyListing := range testContent {
@@ -74,6 +75,8 @@ func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping) {
 				allKeyMappings = append(allKeyMappings, mapping)
 				if !strings.Contains(keyName, "bogus") {
 					onlyValidKeyMappings = append(onlyValidKeyMappings, mapping)
+				} else {
+					onlyBogusKeyMappings = append(onlyBogusKeyMappings, mapping)
 				}
 
 				if err := ioutil.WriteFile(path, []byte(keyVal), 0660); err != nil {
@@ -83,12 +86,12 @@ func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping) {
 		}
 	}
 
-	return dir, []byte(retC), allKeyMappings, onlyValidKeyMappings
+	return dir, []byte(retC), allKeyMappings, onlyValidKeyMappings, onlyBogusKeyMappings
 }
 
 func Test_InputVerifiedByAll_Suite(t *testing.T) {
 	// setup
-	dir, content, allKeyMappings, onlyValidKeyMappings := setupTesting(t)
+	dir, content, allKeyMappings, onlyValidKeyMappings, _ := setupTesting(t)
 
 	// tests in suite
 	t.Run("verify fails on empty mappings input", func(t *testing.T) {
@@ -112,6 +115,56 @@ func Test_InputVerifiedByAll_Suite(t *testing.T) {
 			t.Error(err)
 		} else if !verified {
 			t.Error("Verify incorrectly reported provided keyMappings as unverified when all should have succeeded")
+		} else if len(failed) != 0 {
+			t.Error("Verify returned incorrect number of failed keys", failed)
+		}
+	})
+
+	defer os.RemoveAll(dir)
+}
+
+func Test_InputVerifiedByAnyKey_Suite(t *testing.T) {
+	// setup
+	dir, content, allKeyMappings, onlyValidKeyMappings, onlyBogusKeyMappings := setupTesting(t)
+
+	var sig string
+	for _, k := range onlyValidKeyMappings {
+		sig = k.Signature
+		break
+	}
+
+	// tests in suite
+	t.Run("verify fails on empty mappings input", func(t *testing.T) {
+		if verified, _, failed := InputVerifiedByAnyKey(make([]string, 0), sig, content); len(failed) == 0 {
+			t.Error("Verify did not return an error on empty key/sig input.")
+		} else if verified {
+			t.Error("Verify returned verified but it should not.")
+		}
+	})
+
+	t.Run("verify fails on bogus signature", func(t *testing.T) {
+
+		keys := make([]string, 0, len(onlyBogusKeyMappings))
+		for _, k := range onlyBogusKeyMappings {
+			keys = append(keys, k.PublicKeyPath)
+		}
+
+		if verified, _, failed := InputVerifiedByAnyKey(keys, sig, content); verified {
+			t.Error("Verify incorrectly reported all provided keys as verified when bogus should have failed")
+		} else if len(failed) == 0 {
+			t.Error(fmt.Sprintf("Verify returned incorrect number of failed keys (%v). Returned slice: %v", len(failed), failed))
+		}
+	})
+
+	t.Run("verify succeeds on all verified signatures", func(t *testing.T) {
+
+		keys := make([]string, 0, len(allKeyMappings))
+		for _, k := range allKeyMappings {
+			keys = append(keys, k.PublicKeyPath)
+		}
+
+		if verified, _, failed := InputVerifiedByAnyKey(keys, sig, content); !verified {
+			t.Error("Verify incorrectly reported provided keys as unverified when all should have succeeded")
 		} else if len(failed) != 0 {
 			t.Error("Verify returned incorrect number of failed keys", failed)
 		}
