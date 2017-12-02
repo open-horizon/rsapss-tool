@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func setupTesting(t *testing.T) string {
@@ -28,7 +29,7 @@ func Test_Write_Suite(t *testing.T) {
 	var pubkey string
 	var privatekey string
 
-	generatedContent, err := Write(dir, MinAcceptableKeyLength)
+	generatedContent, err := Write(dir, MinAcceptableKeyLength, "mycn", "myorg", time.Now().Add(1*time.Hour))
 	if err != nil {
 		t.Error(err)
 	}
@@ -60,7 +61,7 @@ func Test_Write_Suite(t *testing.T) {
 	})
 
 	t.Run("generatekeys errors on key length smaller than minimum", func(t *testing.T) {
-		_, err := Write(dir, MinAcceptableKeyLength-1)
+		_, err := Write(dir, MinAcceptableKeyLength-1, "mycn", "myorg", time.Now().Add(1*time.Hour))
 		if err == nil {
 			t.Error("Expected error b/c requested key length is too short")
 		} else if !strings.Contains(err.Error(), "short") {
@@ -74,7 +75,7 @@ func Test_Write_Suite(t *testing.T) {
 			t.Error("Test conditions not correct")
 		}
 
-		_, err := Write(dir, MinAcceptableKeyLength-1)
+		_, err := Write(dir, MinAcceptableKeyLength-1, "mycn", "myorg", time.Now().Add(1*time.Hour))
 		if err == nil {
 			t.Error("Expected error b/c requested key length is too short")
 		} else if !strings.Contains(err.Error(), "short") {

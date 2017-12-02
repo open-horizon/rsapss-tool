@@ -4,12 +4,17 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"golang.org/x/sys/unix"
+	"math"
+	"math/big"
 	"os"
 	"path/filepath"
+	"regexp"
+	"time"
 )
 
 // MinAcceptableKeyLength specifies the smallest acceptable key length this tool will generate
@@ -36,9 +41,48 @@ func pathIsAvail(dir string, file string) (string, error) {
 	return path, nil
 }
 
+func generateCertificate(cn string, organization string, certNotValidAfter time.Time, privateKey *rsa.PrivateKey) (*certRet, error) {
+	// generate a cert
+	random := rand.Reader
+
+	serialMax := new(big.Int)
+	// not crazy?
+	serialMax.SetString(fmt.Sprintf("%f", math.Pow(2, 159)), 10)
+
+	one := big.NewInt(1)
+	// we add 1 to whatever random number is generated so we don't get a 0 b/c the RFC mentions
+	// this as a special case for non-conforming CAs and we want to be as compliant as possible
+	serial, _ := rand.Int(random, serialMax.Sub(serialMax, one))
+	serial.Add(serial, one) // make sure it can't be a 0
+
+	template := x509.Certificate{
+		// must be crypto-suitable random number up to 20 octets in length (cf. rfc5280 4.1.2.2)
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			CommonName:   cn,
+			Organization: []string{organization},
+		},
+		NotBefore: time.Now().Add(time.Duration(-12) * time.Hour),
+		NotAfter:  certNotValidAfter,
+
+		// if we were to accept it as a CA we'd set KeyUsageCertSign and KeyUsageCRLSign too
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA: false,
+	}
+	certDerBytes, err := x509.CreateCertificate(random, &template,
+		&template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, err
+
+	}
+
+	return &certRet{serial, certDerBytes}, nil
+}
+
 // Write writes a new keypair to the given outputDir. It avoids overwriting
 // existing keys of the same name.
-func Write(outputDir string, keyLength int) ([]string, error) {
+func Write(outputDir string, keyLength int, cn string, org string, certNotValidAfter time.Time) ([]string, error) {
 	var empty = []string{}
 
 	if outputDir == "" {
@@ -49,39 +93,34 @@ func Write(outputDir string, keyLength int) ([]string, error) {
 		return empty, fmt.Errorf("Illegal input: keyLength value %d is shorter than the minimum allowed %v", keyLength, MinAcceptableKeyLength)
 	}
 
-	pubPath, err := pathIsAvail(outputDir, "public.key")
-	if err != nil {
-		return empty, err
-	}
-
-	privPath, err := pathIsAvail(outputDir, "private.key")
-	if err != nil {
-		return empty, err
-	}
-
 	privateKey, err := rsa.GenerateKey(rand.Reader, keyLength)
 	if err != nil {
 		return empty, err
 	}
 
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	certRet, err := generateCertificate(cn, org, certNotValidAfter, privateKey)
 	if err != nil {
 		return empty, err
 	}
 
-	pubEnc := &pem.Block{
-		Type:    "PUBLIC KEY",
-		Headers: nil,
-		Bytes:   pubKeyBytes,
-	}
+	orgFilenamePattern := regexp.MustCompile(`[\]\[ ,.!@#$%^&*()<>?/\\{}~]+`)
 
-	pubOut, err := os.Create(pubPath)
+	fileOutPrefix := fmt.Sprintf("%s-%x-", orgFilenamePattern.ReplaceAllLiteralString(org, ""), certRet.serial)
+
+	// x509 certificate with embedded RSA PSS pubkey
+	certPath, err := pathIsAvail(outputDir, fmt.Sprintf("%spublic.cer", fileOutPrefix))
 	if err != nil {
 		return empty, err
 	}
-	defer pubOut.Close()
 
-	if err = pem.Encode(pubOut, pubEnc); err != nil {
+	certOut, err := os.Create(certPath)
+	if err != nil {
+		return empty, err
+	}
+	defer certOut.Close()
+
+	_, err = certOut.Write(certRet.cert)
+	if err != nil {
 		return empty, err
 	}
 
@@ -90,6 +129,11 @@ func Write(outputDir string, keyLength int) ([]string, error) {
 		Type:    "RSA PRIVATE KEY",
 		Headers: nil,
 		Bytes:   x509.MarshalPKCS1PrivateKey(privateKey)}
+
+	privPath, err := pathIsAvail(outputDir, fmt.Sprintf("%sprivate.key", fileOutPrefix))
+	if err != nil {
+		return empty, err
+	}
 
 	privOut, err := os.Create(privPath)
 	if err != nil {
@@ -101,5 +145,10 @@ func Write(outputDir string, keyLength int) ([]string, error) {
 		return empty, err
 	}
 
-	return []string{privPath, pubPath}, nil
+	return []string{privPath, certPath}, nil
+}
+
+type certRet struct {
+	serial *big.Int
+	cert   []byte
 }
