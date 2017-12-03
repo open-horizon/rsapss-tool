@@ -3,13 +3,14 @@
 package generatekeys
 
 import (
+	"github.com/open-horizon/rsapss-tool/constants"
 	"github.com/open-horizon/rsapss-tool/sign"
 	"github.com/open-horizon/rsapss-tool/verify"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func setupTesting(t *testing.T) string {
@@ -24,24 +25,25 @@ func setupTesting(t *testing.T) string {
 func Test_Write_Suite(t *testing.T) {
 	// setup
 	dir := setupTesting(t)
+	defer os.RemoveAll(dir)
 
-	var pubkey string
+	var cert string
 	var privatekey string
 
-	generatedContent, err := Write(dir, MinAcceptableKeyLength)
+	generatedContent, err := Write(dir, constants.MinAcceptableKeyLength, "mycn", "myorg-1", time.Now().Add(1*time.Hour))
 	if err != nil {
 		t.Error(err)
 	}
 
-	for _, key := range generatedContent {
-		if strings.Contains(key, "public") {
-			pubkey = key
-		} else if strings.Contains(key, "private") {
-			privatekey = key
+	for _, f := range generatedContent {
+		if strings.Contains(f, ".pem") {
+			cert = f
+		} else if strings.Contains(f, ".key") {
+			privatekey = f
 		}
 	}
 
-	t.Run("generatekeys generates usable keypair", func(t *testing.T) {
+	t.Run("generatekeys generates usable key and cert pair", func(t *testing.T) {
 		input := []byte("some content to sign")
 
 		// sign
@@ -50,8 +52,8 @@ func Test_Write_Suite(t *testing.T) {
 			t.Error(err)
 		}
 
-		// verify
-		verified, err := verify.Input(pubkey, sig, input)
+		// verify (this also tests the cert's suitability)
+		verified, err := verify.Input(cert, sig, input)
 		if err != nil {
 			t.Error(err)
 		} else if !verified {
@@ -60,7 +62,7 @@ func Test_Write_Suite(t *testing.T) {
 	})
 
 	t.Run("generatekeys errors on key length smaller than minimum", func(t *testing.T) {
-		_, err := Write(dir, MinAcceptableKeyLength-1)
+		_, err := Write(dir, constants.MinAcceptableKeyLength-1, "mycn", "myorg-2", time.Now().Add(10*time.Hour))
 		if err == nil {
 			t.Error("Expected error b/c requested key length is too short")
 		} else if !strings.Contains(err.Error(), "short") {
@@ -68,19 +70,13 @@ func Test_Write_Suite(t *testing.T) {
 		}
 	})
 
-	t.Run("generatekeys errors on keys already in dir", func(t *testing.T) {
-		// N.B. We're counting on the test setup having run successfully and generated a private key
-		if _, err := os.Stat(filepath.Join(dir, "private.key")); os.IsNotExist(err) {
-			t.Error("Test conditions not correct")
-		}
-
-		_, err := Write(dir, MinAcceptableKeyLength-1)
+	t.Run("generatekeys rejects cert generation requests for certs valid for too long", func(t *testing.T) {
+		_, err := Write(dir, constants.MinAcceptableKeyLength, "mycn", "myorg-3", time.Now().AddDate(0, 0, constants.MaxSelfSignedCertExpirationDays+1))
 		if err == nil {
-			t.Error("Expected error b/c requested key length is too short")
-		} else if !strings.Contains(err.Error(), "short") {
-			t.Error("Expected error specifying requested key length is too short")
+			t.Error("Expected error b/c requested cert is valid too far in the future")
+		} else if !strings.Contains(err.Error(), "validity") {
+			t.Error("Expected error specifying requested validity date too far away")
 		}
 	})
 
-	defer os.RemoveAll(dir)
 }

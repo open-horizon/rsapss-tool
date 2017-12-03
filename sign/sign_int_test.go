@@ -82,6 +82,7 @@ func setupTesting(t *testing.T) string {
 func Test_Input_Suite(t *testing.T) {
 	// setup
 	dir := setupTesting(t)
+	defer os.RemoveAll(dir)
 
 	// tests in suite
 	t.Run("no private key", func(t *testing.T) {
@@ -115,5 +116,4 @@ func Test_Input_Suite(t *testing.T) {
 		}
 	})
 
-	defer os.RemoveAll(dir)
 }
