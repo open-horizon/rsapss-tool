@@ -29,9 +29,6 @@ const (
 
 	nokeysOutput = "NOKEYS"
 
-	// 10 years, 2 leap days and 1 day for padding
-	maxSelfSignedCertExpirationDays = 3653
-
 	// default subdir path (of $HOME) for this tool's state
 	rsapssHomeDirSuffix = ".rsapsstool"
 
@@ -147,10 +144,6 @@ func generateNewKeysAction(ctx *cli.Context) error {
 	}
 
 	daysValidI := ctx.Int("x509daysvalid")
-	if daysValidI < 1 || daysValidI > maxSelfSignedCertExpirationDays {
-		return cli.NewExitError(fmt.Sprintf("x509 certificate validity date argument invalid. Please specify a number of days greater than 1 and less than %d", maxSelfSignedCertExpirationDays), 2)
-	}
-
 	newKeys, err := generatekeys.Write(outputDir, ctx.Int("keylength"), cnI, orgI, time.Now().AddDate(0, 0, daysValidI))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s Error generating new keys: %v\n", outputErrorPrefix, err)

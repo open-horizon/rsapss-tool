@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/open-horizon/rsapss-tool/constants"
 	"golang.org/x/sys/unix"
 	"math"
 	"math/big"
@@ -16,9 +17,6 @@ import (
 	"regexp"
 	"time"
 )
-
-// MinAcceptableKeyLength specifies the smallest acceptable key length this tool will generate
-const MinAcceptableKeyLength = 1024
 
 // Returns composed path if there is not a name conflict and the directory is
 // writable.
@@ -55,15 +53,24 @@ func generateCertificate(cn string, organization string, certNotValidAfter time.
 	serial, _ := rand.Int(random, serialMax.Sub(serialMax, one))
 	serial.Add(serial, one) // make sure it can't be a 0
 
+	name := pkix.Name{
+		CommonName:   cn,
+		Organization: []string{organization},
+	}
+
+	now := time.Now()
+
+	if (certNotValidAfter.Unix() - now.Unix()) > constants.MaxSelfSignedCertExpirationDays*24*60*60 {
+		return nil, fmt.Errorf("x509 certificate validity date unacceptable. Please specify a time from request less than %d days away", constants.MaxSelfSignedCertExpirationDays)
+	}
+
 	template := x509.Certificate{
 		// must be crypto-suitable random number up to 20 octets in length (cf. rfc5280 4.1.2.2)
 		SerialNumber: serial,
-		Subject: pkix.Name{
-			CommonName:   cn,
-			Organization: []string{organization},
-		},
-		NotBefore: time.Now().Add(time.Duration(-12) * time.Hour),
-		NotAfter:  certNotValidAfter,
+		Issuer:       name,
+		Subject:      name,
+		NotBefore:    now.Add(time.Duration(-12) * time.Hour),
+		NotAfter:     certNotValidAfter,
 
 		// if we were to accept it as a CA we'd set KeyUsageCertSign and KeyUsageCRLSign too
 		KeyUsage:              x509.KeyUsageDigitalSignature,
@@ -89,8 +96,8 @@ func Write(outputDir string, keyLength int, cn string, org string, certNotValidA
 		return empty, errors.New("Required parameter outputDir has invalid value, nil")
 	}
 
-	if keyLength < MinAcceptableKeyLength {
-		return empty, fmt.Errorf("Illegal input: keyLength value %d is shorter than the minimum allowed %v", keyLength, MinAcceptableKeyLength)
+	if keyLength < constants.MinAcceptableKeyLength {
+		return empty, fmt.Errorf("Illegal input: keyLength value %d is shorter than the minimum allowed %v", keyLength, constants.MinAcceptableKeyLength)
 	}
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, keyLength)
