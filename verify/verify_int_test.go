@@ -134,16 +134,25 @@ func regenerateCert(t *testing.T, serialNo int, isCa bool, basicConstraintsValid
 		t.Error(err)
 	}
 
+	var certEnc = &pem.Block{
+		Type:    "CERTIFICATE",
+		Headers: nil,
+		Bytes:   certDerBytes}
+
 	dirParts := strings.Split(privateKeyPath, "/")
 	dir := strings.Join(dirParts[0:len(dirParts)-1], "/")
 
 	regeneratedCertPath := path.Join(dir, fmt.Sprintf("regencert-%d", serialNo))
 
-	err = ioutil.WriteFile(regeneratedCertPath, certDerBytes, 0644)
+	certOut, err := os.Create(regeneratedCertPath)
 	if err != nil {
 		t.Error(err)
 	}
+	defer certOut.Close()
 
+	if err := pem.Encode(certOut, certEnc); err != nil {
+		t.Error(err)
+	}
 	return regeneratedCertPath
 }
 
@@ -189,7 +198,7 @@ func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping, [
 
 	validCertFilePath := path.Join(dir, validCert.SerialNumber.String())
 
-	if err := ioutil.WriteFile(validCertFilePath, validCert.Raw, 0644); err != nil {
+	if err := ioutil.WriteFile(validCertFilePath, []byte(validTestCert), 0644); err != nil {
 		t.Error(err)
 	}
 
@@ -205,6 +214,7 @@ func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping, [
 func Test_InputVerifiedByAll_Suite(t *testing.T) {
 	// setup
 	dir, content, allKeyMappings, onlyValidKeyMappings, _, _, _ := setupTesting(t)
+	defer os.RemoveAll(dir)
 
 	// tests in suite
 	t.Run("verify fails on empty mappings input", func(t *testing.T) {
@@ -233,12 +243,12 @@ func Test_InputVerifiedByAll_Suite(t *testing.T) {
 		}
 	})
 
-	defer os.RemoveAll(dir)
 }
 
 func Test_InputVerifiedByAnyKey_Suite(t *testing.T) {
 	// setup
 	dir, content, allKeyMappings, onlyValidKeyMappings, onlyBogusKeyMappings, validCertPath, validPrivateKeyPath := setupTesting(t)
+	defer os.RemoveAll(dir)
 
 	var sig string
 	for _, k := range onlyValidKeyMappings {
@@ -331,7 +341,12 @@ func Test_InputVerifiedByAnyKey_Suite(t *testing.T) {
 				t.Error(err)
 			}
 
-			cert, err := x509.ParseCertificates(by)
+			block, _ := pem.Decode(by)
+			if block == nil {
+				t.Errorf("Unable to find PEM block in cert: %v", invalidCertPath)
+			}
+
+			cert, err := x509.ParseCertificates(block.Bytes)
 			if err != nil {
 				t.Error(err)
 			}
@@ -346,5 +361,4 @@ func Test_InputVerifiedByAnyKey_Suite(t *testing.T) {
 		}
 	})
 
-	defer os.RemoveAll(dir)
 }

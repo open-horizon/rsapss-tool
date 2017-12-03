@@ -148,9 +148,14 @@ func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash
 		return false, KeyError{fmt.Sprintf("Unable to read key file: %v", certOrKeyFileName), err}
 	}
 
+	block, _ := pem.Decode(pubkeyOrCertRaw)
+	if block == nil {
+		return false, KeyError{fmt.Sprintf("Unable to find PEM block in the provided public key or cert: %v", certOrKeyFileName), err}
+	}
+
 	var pubkey interface{}
 
-	if certs, err := x509.ParseCertificates(pubkeyOrCertRaw); err == nil {
+	if certs, err := x509.ParseCertificates(block.Bytes); err == nil {
 		// trying input file as an x509 cert
 
 		if len(certs) != 1 {
@@ -203,11 +208,6 @@ func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash
 
 	} else {
 		// try as a pem-encoded key (we support this for now, need to remove it eventually once everyone moves to x509 certs
-
-		block, _ := pem.Decode(pubkeyOrCertRaw)
-		if block == nil {
-			return false, KeyError{fmt.Sprintf("Unable to find PEM block in the provided public key: %v", certOrKeyFileName), err}
-		}
 
 		pubkey, err = x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {

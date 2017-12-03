@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/pem"
 	"fmt"
 	"github.com/open-horizon/rsapss-tool/sign"
 	"io/ioutil"
@@ -103,22 +104,24 @@ func ListPairs(dir string) (map[string]KeyPair, error) {
 	list := make(map[string]KeyPair, 0)
 
 	err := filepath.Walk(dir, func(filePath string, info os.FileInfo, err error) error {
-		if !info.IsDir() && strings.HasSuffix(filePath, ".cer") {
+		if !info.IsDir() && strings.HasSuffix(filePath, ".pem") {
 			certBytes, err := ioutil.ReadFile(filePath)
 			if err != nil {
 				return err
-				//fmt.Fprintf(os.Stderr, "%s Failed to read certificate file: %v\n", outputErrorPrefix, err)
 			}
 
-			certs, err := x509.ParseCertificates(certBytes)
+			block, _ := pem.Decode(certBytes)
+			if block == nil {
+				return fmt.Errorf("Unable to find PEM block in the provided cert: %v", filePath)
+			}
+
+			certs, err := x509.ParseCertificates(block.Bytes)
 			if err != nil {
 				return err
-				// fmt.Fprintf(os.Stderr, "%s Failed to parse certificate: %v\n", outputErrorPrefix, err)
 			}
 
 			if len(certs) != 1 {
 				return err
-				// fmt.Fprintf(os.Stderr, "%s Failed to read expected single certificate from file: %v\n", outputErrorPrefix, filePath)
 			}
 
 			cert := certs[0]
@@ -135,13 +138,18 @@ func ListPairs(dir string) (map[string]KeyPair, error) {
 				return err
 			}
 
+			var havePrivateKey bool
+			if privatekey != nil {
+				havePrivateKey = reflect.DeepEqual(privatekey.PublicKey, certPubkey)
+			}
+
 			list[info.Name()] = KeyPair{
 				SerialNumber:   cert.SerialNumber,
 				SubjectNames:   cert.Subject.Names,
 				NotValidBefore: cert.NotBefore,
 				NotValidAfter:  cert.NotAfter,
 				Issuer:         cert.Issuer.Names,
-				HavePrivateKey: reflect.DeepEqual(privatekey.PublicKey, certPubkey),
+				HavePrivateKey: havePrivateKey,
 			}
 		}
 

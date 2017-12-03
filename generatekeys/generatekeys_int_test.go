@@ -3,7 +3,6 @@
 package generatekeys
 
 import (
-	"fmt"
 	"github.com/open-horizon/rsapss-tool/constants"
 	"github.com/open-horizon/rsapss-tool/sign"
 	"github.com/open-horizon/rsapss-tool/verify"
@@ -26,7 +25,6 @@ func setupTesting(t *testing.T) string {
 func Test_Write_Suite(t *testing.T) {
 	// setup
 	dir := setupTesting(t)
-	fmt.Printf("temporary dir: %v\n", dir)
 	defer os.RemoveAll(dir)
 
 	var cert string
@@ -38,14 +36,12 @@ func Test_Write_Suite(t *testing.T) {
 	}
 
 	for _, f := range generatedContent {
-		if strings.Contains(f, ".cer") {
+		if strings.Contains(f, ".pem") {
 			cert = f
 		} else if strings.Contains(f, ".key") {
 			privatekey = f
 		}
 	}
-
-	// fmt.Printf("\ncert: %v; privatekey: %v\n", cert, privatekey)
 
 	t.Run("generatekeys generates usable key and cert pair", func(t *testing.T) {
 		input := []byte("some content to sign")

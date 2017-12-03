@@ -114,8 +114,13 @@ func Write(outputDir string, keyLength int, cn string, org string, certNotValidA
 
 	fileOutPrefix := fmt.Sprintf("%s-%x-", orgFilenamePattern.ReplaceAllLiteralString(org, ""), certRet.serial)
 
+	var certEnc = &pem.Block{
+		Type:    "CERTIFICATE",
+		Headers: nil,
+		Bytes:   certRet.cert}
+
 	// x509 certificate with embedded RSA PSS pubkey
-	certPath, err := pathIsAvail(outputDir, fmt.Sprintf("%spublic.cer", fileOutPrefix))
+	certPath, err := pathIsAvail(outputDir, fmt.Sprintf("%spublic.pem", fileOutPrefix))
 	if err != nil {
 		return empty, err
 	}
@@ -126,8 +131,7 @@ func Write(outputDir string, keyLength int, cn string, org string, certNotValidA
 	}
 	defer certOut.Close()
 
-	_, err = certOut.Write(certRet.cert)
-	if err != nil {
+	if err := pem.Encode(certOut, certEnc); err != nil {
 		return empty, err
 	}
 
@@ -148,7 +152,7 @@ func Write(outputDir string, keyLength int, cn string, org string, certNotValidA
 	}
 	defer privOut.Close()
 
-	if err = pem.Encode(privOut, privEnc); err != nil {
+	if err := pem.Encode(privOut, privEnc); err != nil {
 		return empty, err
 	}
 
