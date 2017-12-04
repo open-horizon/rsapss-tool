@@ -35,6 +35,20 @@ const (
 
 	// default directory for installing pubkeys locally
 	horizonDefaultUserKeysDir = "/var/horizon/userkeys"
+
+	listKeysTemplate = `{{range $f, $c := .}}{{$certLine := (print "Certificate (" $f ")" )}}
+{{$certLine}}
+{{separator $certLine}}
+  Serial Number: {{$c.SerialOctet}}
+  Have Corresponding Private Key: {{$c.HavePrivateKey}}
+  Issuer: {{$c.SimpleIssuer}}
+  Validity:
+    Not Before: {{$c.NotValidBefore}}
+    Not After: {{$c.NotValidAfter}}
+  Subject Names:
+    {{range $k, $v := $c.SimpleSubjectNames}}{{$k}}: {{$v}}
+    {{end}}{{end}}
+`
 )
 
 var rsapssHomeDefault string
@@ -93,9 +107,9 @@ func listKeysAction(ctx *cli.Context) error {
 		fmt.Fprintf(os.Stderr, "%s Summarizing x509 Certificates found in directory %s. For more detail, execute `openssl x509 -noout -text -in <cert_filepath> -inform PEM`\n", outputInfoPrefix, keysDir)
 
 		// use template to do pretty-printed output
-		t := template.Must(template.New("keylist.tmpl").Funcs(map[string]interface{}{"separator": func(s string) string {
+		t := template.Must(template.New("keylist").Funcs(map[string]interface{}{"separator": func(s string) string {
 			return strings.Repeat("-", utf8.RuneCountInString(s))
-		}}).ParseFiles("keylist.tmpl"))
+		}}).Parse(listKeysTemplate))
 		if err := t.Execute(os.Stdout, list); err != nil {
 			fmt.Fprintf(os.Stderr, "%s Unable to format key list output: %v\n", outputErrorPrefix, err)
 		}
