@@ -43,9 +43,8 @@ The CLI binary includes help:
 
  Below is a sequence of commands showing generation of new RSA PSS keys and use of them. Different forms of configuration options are used to show variety of supported invocations.
 
-    rsapss-tool gk --keylength 8192 --x509org "Horizon" --x509cn "development@bluehorizon.network" --x509daysvalid 365
-    rsapss-tool listkeypairs
-
+    $ rsapss-tool gk --keylength 8192 --x509org "Horizon" --x509cn "development@bluehorizon.network" --x509daysvalid 365
+    $ rsapss-tool listkeypairs
     [INFO] Summarizing x509 Certificates found in directory /home/mdye/.rsapsstool/keypairs. For more detail, execute `openssl x509 -noout -text -in <cert_filepath> -inform PEM`
 
     Certificate (Horizon-6458f6e1efcbe13d5c567bd7c815ecfd0ea5459f-public.pem)
@@ -63,14 +62,14 @@ The CLI binary includes help:
 
     [INFO] Exiting
 
-    printf "somecontent" | rsapss-tool sign --privatekey $(ls ~/.rsapsstool/keypairs/*.key) > /tmp/somecontent.signature
-    printf "somecontent" | rsapss-tool verify --publickey $(ls ~/.rsapsstool/keypairs/*.pem) -x /tmp/somecontent.signature 2>/dev/null | grep SIG
-    printf "some OTHER content" | rsapss-tool verify --publickey $(ls ~/.rsapsstool/keypairs/*.pem) -x /tmp/somecontent.signature
-    echo $?
+    $ printf "somecontent" | rsapss-tool sign --privatekey $(ls ~/.rsapsstool/keypairs/*.key) > /tmp/somecontent.signature
+    $ printf "somecontent" | rsapss-tool verify --publickey $(ls ~/.rsapsstool/keypairs/*.pem) -x /tmp/somecontent.signature 2>/dev/null | grep SIG
+    $ printf "some OTHER content" | rsapss-tool verify --publickey $(ls ~/.rsapsstool/keypairs/*.pem) -x /tmp/somecontent.signature
+    $ echo $?
 
 It's possible to specify command options with envvars, for instance `--debug` can be enabled like this:
 
-    printf "some OTHER content" | RSAPSSTOOL_DEBUG=true rsapss-tool verify --publickey $(ls ~/.rsapsstool/keypairs/*.pem) -x /tmp/somecontent.signature
+    $ printf "some OTHER content" | RSAPSSTOOL_DEBUG=true rsapss-tool verify --publickey $(ls ~/.rsapsstool/keypairs/*.pem) -x /tmp/somecontent.signature
 
 See the tool's help output for the names of envvars that corresond to command options.
 
