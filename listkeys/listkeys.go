@@ -4,10 +4,10 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
 	"github.com/open-horizon/rsapss-tool/sign"
+	"github.com/open-horizon/rsapss-tool/utility"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -41,42 +41,12 @@ func (k KeyPair) SimpleIssuer() string {
 
 func (k KeyPair) SimpleSubjectNames() map[string]interface{} {
 
-	subjectNames := make(map[string]interface{}, 0)
-
-	for _, subj := range k.SubjectNames {
-		if reflect.DeepEqual(subj.Type, asn1.ObjectIdentifier{2, 5, 4, 10}) {
-			subjectNames["organizationName (O)"] = subj.Value
-		} else if reflect.DeepEqual(subj.Type, asn1.ObjectIdentifier{2, 5, 4, 3}) {
-			subjectNames["commonName (CN)"] = subj.Value
-		} else {
-			subjectNames[subj.Type.String()] = subj.Value
-		}
-	}
-
-	return subjectNames
+	return utility.SimpleSubjectNames(k.SubjectNames)
 }
 
 func (k KeyPair) SerialOctet() string {
-	shiftDivisor := big.NewInt(1 << 8)
-	mask := big.NewInt((1 << 8) - 1)
 
-	var accumulate func(acc []string, n *big.Int) []string
-
-	accumulate = func(acc []string, n *big.Int) []string {
-		if n.BitLen() == 0 {
-			return acc
-		}
-
-		// get value of least significant 8 bits
-		v := big.NewInt(0)
-		v.And(n, mask)
-		// prepend the new value
-		acc = append([]string{fmt.Sprintf("%02x", v.Uint64())}, acc...)
-		// we instantiate a new bigint to hold the result of the division so we don't change n
-		return accumulate(acc, big.NewInt(0).Div(n, shiftDivisor))
-	}
-
-	return strings.Join(accumulate([]string{}, k.SerialNumber), ":")
+	return utility.SerialOctet(k.SerialNumber)
 }
 
 func (k KeyPair) String() string {
