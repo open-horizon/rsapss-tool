@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/open-horizon/rsapss-tool/constants"
+	"github.com/open-horizon/rsapss-tool/utility"
 	"hash"
 	"io/ioutil"
 	"math/big"
@@ -180,7 +181,7 @@ func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash
 		}
 
 		if (cert.NotAfter.Unix() - cert.NotBefore.Unix()) > constants.MaxSelfSignedCertExpirationDays*24*60*60 {
-			return false, KeyError{fmt.Sprintf("Certificate %v invalid; 'NotAfter' validation date is too far in the future. Max allowed days from issuance: %v", cert.SerialNumber.String(), constants.MaxSelfSignedCertExpirationDays), nil}
+			return false, KeyError{fmt.Sprintf("Certificate %v invalid; 'NotAfter' validation date is too far in the future. Max allowed days from issuance: %v", utility.SerialOctet(cert.SerialNumber), constants.MaxSelfSignedCertExpirationDays), nil}
 		}
 
 		if cert.SerialNumber.Cmp(big.NewInt(0)) < 1 {

@@ -60,8 +60,9 @@ func generateCertificate(cn string, organization string, certNotValidAfter time.
 
 	now := time.Now()
 
-	if (certNotValidAfter.Unix() - now.Unix()) > constants.MaxSelfSignedCertExpirationDays*24*60*60 {
-		return nil, fmt.Errorf("x509 certificate validity date unacceptable. Please specify a time from request less than %d days away", constants.MaxSelfSignedCertExpirationDays)
+	bufferHours := 12
+	if (certNotValidAfter.Unix() - (now.Unix() - int64(bufferHours*60*60))) > constants.MaxSelfSignedCertExpirationDays*24*60*60 {
+		return nil, fmt.Errorf("x509 certificate validity date unacceptable. Please specify a time from request less than %d days away", (constants.MaxSelfSignedCertExpirationDays - 1))
 	}
 
 	template := x509.Certificate{
@@ -69,7 +70,7 @@ func generateCertificate(cn string, organization string, certNotValidAfter time.
 		SerialNumber: serial,
 		Issuer:       name,
 		Subject:      name,
-		NotBefore:    now.Add(time.Duration(-12) * time.Hour),
+		NotBefore:    now.Add(time.Duration(-bufferHours) * time.Hour),
 		NotAfter:     certNotValidAfter,
 
 		// if we were to accept it as a CA we'd set KeyUsageCertSign and KeyUsageCRLSign too
