@@ -138,20 +138,14 @@ func (e KeyError) Error() string {
 	return fmt.Sprintf("%v. InternalError: %v", e.Msg, e.InternalError)
 }
 
-// This function verifies the given signature and data with the public key.
-// It returns true if the verification is successful.
-// It returns false if the verification is not successful. The error indicates what went wrong.
-// The error can be VerificationError or KeyError
-func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash) (bool, error) {
-	// open the file
-	pubkeyOrCertRaw, err := ioutil.ReadFile(certOrKeyFileName)
-	if err != nil {
-		return false, KeyError{fmt.Sprintf("Unable to read key file: %v", certOrKeyFileName), err}
-	}
-
-	block, _ := pem.Decode(pubkeyOrCertRaw)
+// ValidKeyOrCert succeeds if given data is a valid PEM-encoded x509 cert
+// containing an RSAPSS public key or a PEM-encoded raw RSAPSS public key,
+// either of which are valid. If the given data does not validate a KeyError
+// is returned. If no error occurs a reference to the public key is returned.
+func ValidKeyOrCert(keyOrCert []byte) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode(keyOrCert)
 	if block == nil {
-		return false, KeyError{fmt.Sprintf("Unable to find PEM block in the provided public key or cert: %v", certOrKeyFileName), err}
+		return nil, KeyError{"Unable to find PEM block in the provided public key or cert", nil}
 	}
 
 	var pubkey interface{}
@@ -160,7 +154,7 @@ func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash
 		// trying input file as an x509 cert
 
 		if len(certs) != 1 {
-			return false, KeyError{fmt.Sprintf("Singular x509 Certificate not parseable from given keyfile: %v", certOrKeyFileName), nil}
+			return nil, KeyError{"Singular x509 Certificate not parseable from given keyfile", nil}
 		}
 
 		cert := certs[0]
@@ -173,36 +167,36 @@ func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash
 		// check that the cert is signed by privatekey of self (because they're all self-signed)
 
 		if now.Before(cert.NotBefore) {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; current time %v before valid NotBefore time: %v", now, cert.NotBefore), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; current time %v before valid NotBefore time: %v", now, cert.NotBefore), nil}
 		}
 
 		if now.After(cert.NotAfter) {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; current time %v after valid NotAfter time: %v", now, cert.NotAfter), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; current time %v after valid NotAfter time: %v", now, cert.NotAfter), nil}
 		}
 
 		if (cert.NotAfter.Unix() - cert.NotBefore.Unix()) > constants.MaxSelfSignedCertExpirationDays*24*60*60 {
-			return false, KeyError{fmt.Sprintf("Certificate %v invalid; 'NotAfter' validation date is too far in the future. Max allowed days from issuance: %v", utility.SerialOctet(cert.SerialNumber), constants.MaxSelfSignedCertExpirationDays), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate %v invalid; 'NotAfter' validation date is too far in the future. Max allowed days from issuance: %v", utility.SerialOctet(cert.SerialNumber), constants.MaxSelfSignedCertExpirationDays), nil}
 		}
 
 		if cert.SerialNumber.Cmp(big.NewInt(0)) < 1 {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; serial number not positive: %v", cert.SerialNumber.String()), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; serial number not positive: %v", cert.SerialNumber.String()), nil}
 		}
 
 		if !cert.BasicConstraintsValid {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; basic constraints not included"), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; basic constraints not included"), nil}
 		}
 
 		if cert.KeyUsage != x509.KeyUsageDigitalSignature {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; only KeyUsageDigitalSignature use type is permitted"), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; only KeyUsageDigitalSignature use type is permitted"), nil}
 		}
 
 		// next two checks are for self-issued certs; we do not yet accept CA certs and when we do we must validate the whole cert chain
 		if cert.IsCA {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; cert is a CA which is not supported"), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; cert is a CA which is not supported"), nil}
 		}
 
 		if cert.Issuer.CommonName == "" || !reflect.DeepEqual(cert.Issuer, cert.Subject) {
-			return false, KeyError{fmt.Sprintf("Certificate invalid; certificate not self-issued"), nil}
+			return nil, KeyError{fmt.Sprintf("Certificate invalid; certificate not self-issued"), nil}
 		}
 
 		pubkey = cert.PublicKey
@@ -212,12 +206,32 @@ func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash
 
 		pubkey, err = x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
-			return false, KeyError{fmt.Sprintf("Unable to parse key file: %v, as a public key.", certOrKeyFileName), err}
+			return nil, KeyError{"Unable to parse provided file as a public key.", err}
 		}
 	}
 
+	return pubkey.(*rsa.PublicKey), nil
+
+}
+
+// This function verifies the given signature and data with the public key.
+// It returns true if the verification is successful.
+// It returns false if the verification is not successful. The error indicates what went wrong.
+// The error can be VerificationError or KeyError
+func verify(certOrKeyFileName string, signatureBytes []byte, inputHash hash.Hash) (bool, error) {
+	// open the file
+	pubkeyOrCertRaw, err := ioutil.ReadFile(certOrKeyFileName)
+	if err != nil {
+		return false, KeyError{fmt.Sprintf("Unable to read key file: %v", certOrKeyFileName), err}
+	}
+
+	pubkey, err := ValidKeyOrCert(pubkeyOrCertRaw)
+	if err != nil {
+		return false, err
+	}
+
 	// verify the signature
-	err = rsa.VerifyPSS(pubkey.(*rsa.PublicKey), crypto.SHA256, inputHash.Sum(nil), signatureBytes, nil)
+	err = rsa.VerifyPSS(pubkey, crypto.SHA256, inputHash.Sum(nil), signatureBytes, nil)
 	if err != nil {
 		return false, VerificationError{fmt.Sprintf("Unable to verify signature using pubkey file: %v", certOrKeyFileName), err}
 	}
