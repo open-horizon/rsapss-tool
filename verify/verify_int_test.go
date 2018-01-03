@@ -358,6 +358,15 @@ func Test_InputVerifiedByAnyKey_Suite(t *testing.T) {
 			} else {
 				t.Logf("Expected error has message: %v", failed[invalidCertPath])
 			}
+
+			// now test just the cert validator function and expect it gives the same result
+			if pubkey, err := ValidKeyOrCert(by); err == nil {
+				t.Errorf("Expected error on invalid cert %v but didn't get one", cert[0].SerialNumber.String())
+			} else if pubkey != nil {
+				t.Errorf("Expected nil pubkey returned because of invalid input for cert %v", cert[0].SerialNumber.String())
+			}
+
+			// don't bother logging these, it is done above
 		}
 	})
 
