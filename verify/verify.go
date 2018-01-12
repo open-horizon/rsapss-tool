@@ -135,7 +135,11 @@ type KeyError struct {
 // Error provides a loggable error message including the message of an
 // internal error (one enclosed in this error).
 func (e KeyError) Error() string {
-	return fmt.Sprintf("%v. InternalError: %v", e.Msg, e.InternalError)
+	if e.InternalError != nil {
+		return fmt.Sprintf("%v. InternalError: %v", e.Msg, e.InternalError)
+	} else {
+		return fmt.Sprintf("%v", e.Msg)
+	}
 }
 
 // ValidKeyOrCert succeeds if given data is a valid PEM-encoded x509 cert
