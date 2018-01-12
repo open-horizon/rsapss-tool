@@ -91,7 +91,13 @@ func ReadKeyPair(filePath string) (*KeyPair, error) {
 
 	cert := certs[0]
 
-	pkFilename, err := pkFilenameFromCertFilename(filePath)
+	pathParts := strings.Split(filePath, "/")
+	var fileNameIndex int
+	if len(pathParts) != 0 {
+		fileNameIndex = len(pathParts) - 1
+	}
+
+	pkFilename, err := pkFilenameFromCertFilename(pathParts[fileNameIndex])
 	if err != nil {
 		return nil, err
 	}
