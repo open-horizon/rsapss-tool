@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// KeyPairList is a record of an x509 certificate wrapping a pubkey and a matching private key
+// KeyPair is a record of an x509 certificate wrapping a pubkey and a matching private key
 type KeyPair struct {
 	SerialNumber   *big.Int
 	SubjectNames   []pkix.AttributeTypeAndValue
@@ -26,6 +26,29 @@ type KeyPair struct {
 	HavePrivateKey bool
 	NotValidBefore time.Time
 	NotValidAfter  time.Time
+}
+
+// KeyPairSimple is a KeyPair serializable struct meant to aid generating pretty output in JSON
+type KeyPairSimple struct {
+	Type           string                 `json:"type"`
+	SerialNumber   string                 `json:"serial_number"`
+	SubjectNames   map[string]interface{} `json:"subject_names"`
+	HavePrivateKey bool                   `json:"have_private_key"`
+	NotValidBefore time.Time              `json:"not_valid_before"`
+	NotValidAfter  time.Time              `json:"not_valid_after"`
+	Raw            KeyPair                `json:"raw"`
+}
+
+func (k KeyPair) ToKeyPairSimple() KeyPairSimple {
+	return KeyPairSimple{
+		Type:           "KeyPairSimple",
+		SerialNumber:   k.SerialOctet(),
+		SubjectNames:   k.SimpleSubjectNames(),
+		HavePrivateKey: k.HavePrivateKey,
+		NotValidBefore: k.NotValidBefore,
+		NotValidAfter:  k.NotValidAfter,
+		Raw:            k,
+	}
 }
 
 func (k KeyPair) SimpleIssuer() string {
