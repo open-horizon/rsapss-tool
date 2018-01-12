@@ -69,57 +69,71 @@ func pubkeyFromCert(cert *x509.Certificate) (rsa.PublicKey, error) {
 	return *(cert.PublicKey.(*rsa.PublicKey)), nil
 }
 
+func ReadKeyPair(filePath string) (*KeyPair, error) {
+	certBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(certBytes)
+	if block == nil {
+		return nil, fmt.Errorf("Unable to find PEM block in the provided cert: %v", filePath)
+	}
+
+	certs, err := x509.ParseCertificates(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(certs) != 1 {
+		return nil, err
+	}
+
+	cert := certs[0]
+
+	pkFilename, err := pkFilenameFromCertFilename(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	pathSegments := strings.Split(filePath, "/")
+	if len(pathSegments) == 0 {
+		return nil, fmt.Errorf("Unusable path segment for key: %v", pathSegments)
+	}
+
+	privatekey, err := sign.ReadPrivateKey(path.Join(pathSegments[len(pathSegments)-1], pkFilename))
+
+	certPubkey, err := pubkeyFromCert(cert)
+	if err != nil {
+		return nil, err
+	}
+
+	var havePrivateKey bool
+	if privatekey != nil {
+		havePrivateKey = reflect.DeepEqual(privatekey.PublicKey, certPubkey)
+	}
+
+	return &KeyPair{
+		SerialNumber:   cert.SerialNumber,
+		SubjectNames:   cert.Subject.Names,
+		NotValidBefore: cert.NotBefore,
+		NotValidAfter:  cert.NotAfter,
+		Issuer:         cert.Issuer.Names,
+		HavePrivateKey: havePrivateKey,
+	}, nil
+}
+
 // ListPairs returns a slice of KeyPairList objects read from given directory or error
 func ListPairs(dir string) (map[string]KeyPair, error) {
 	list := make(map[string]KeyPair, 0)
 
 	err := filepath.Walk(dir, func(filePath string, info os.FileInfo, err error) error {
 		if !info.IsDir() && strings.HasSuffix(filePath, ".pem") {
-			certBytes, err := ioutil.ReadFile(filePath)
-			if err != nil {
-				return err
-			}
+			pair, err := ReadKeyPair(filePath)
 
-			block, _ := pem.Decode(certBytes)
-			if block == nil {
-				return fmt.Errorf("Unable to find PEM block in the provided cert: %v", filePath)
-			}
-
-			certs, err := x509.ParseCertificates(block.Bytes)
-			if err != nil {
-				return err
-			}
-
-			if len(certs) != 1 {
-				return err
-			}
-
-			cert := certs[0]
-
-			pkFilename, err := pkFilenameFromCertFilename(info.Name())
-			if err != nil {
-				return err
-			}
-
-			privatekey, err := sign.ReadPrivateKey(path.Join(dir, pkFilename))
-
-			certPubkey, err := pubkeyFromCert(cert)
-			if err != nil {
-				return err
-			}
-
-			var havePrivateKey bool
-			if privatekey != nil {
-				havePrivateKey = reflect.DeepEqual(privatekey.PublicKey, certPubkey)
-			}
-
-			list[info.Name()] = KeyPair{
-				SerialNumber:   cert.SerialNumber,
-				SubjectNames:   cert.Subject.Names,
-				NotValidBefore: cert.NotBefore,
-				NotValidAfter:  cert.NotAfter,
-				Issuer:         cert.Issuer.Names,
-				HavePrivateKey: havePrivateKey,
+			// TODO: output errors here without failing; for now we're skipping them b/c we're trying to be friendly about reading data from directory with mixed content
+			if err == nil {
+				list[info.Name()] = *pair
 			}
 		}
 
