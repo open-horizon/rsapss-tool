@@ -1,11 +1,14 @@
 package listkeys
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/open-horizon/rsapss-tool/generatekeys"
 	"github.com/open-horizon/rsapss-tool/sign"
 	"github.com/open-horizon/rsapss-tool/utility"
 	"io/ioutil"
@@ -14,15 +17,19 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var escapeLineEndingsRegex = regexp.MustCompile("\n")
 
 // KeyPair is a record of an x509 certificate wrapping a pubkey and a matching private key
 type KeyPair struct {
 	SerialNumber   *big.Int
 	SubjectNames   []pkix.AttributeTypeAndValue
 	Issuer         []pkix.AttributeTypeAndValue
+	PublicKey      *rsa.PublicKey
 	HavePrivateKey bool
 	NotValidBefore time.Time
 	NotValidAfter  time.Time
@@ -36,19 +43,38 @@ type KeyPairSimple struct {
 	HavePrivateKey bool                   `json:"have_private_key"`
 	NotValidBefore time.Time              `json:"not_valid_before"`
 	NotValidAfter  time.Time              `json:"not_valid_after"`
-	Raw            KeyPair                `json:"raw"`
+	PublicKey      string                 `json:"public_key"`
+	RawKeyPair     KeyPair                `json:"_raw_key_pair,omitempty"`
 }
 
-func (k KeyPair) ToKeyPairSimple() KeyPairSimple {
-	return KeyPairSimple{
+func (k KeyPair) ToKeyPairSimple(includeRaw bool) (*KeyPairSimple, error) {
+	var optRaw KeyPair
+	if includeRaw {
+		optRaw = k
+	}
+
+	var keyBytes bytes.Buffer
+	derBytes, err := x509.MarshalPKIXPublicKey(k.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	keyWriter := bufio.NewWriter(&keyBytes)
+	if err := generatekeys.ExportAsPEM(derBytes, "PUBLIC KEY", keyWriter); err != nil {
+		return nil, err
+	}
+	keyWriter.Flush()
+
+	return &KeyPairSimple{
 		Type:           "KeyPairSimple",
 		SerialNumber:   k.SerialOctet(),
 		SubjectNames:   k.SimpleSubjectNames(),
 		HavePrivateKey: k.HavePrivateKey,
 		NotValidBefore: k.NotValidBefore,
 		NotValidAfter:  k.NotValidAfter,
-		Raw:            k,
-	}
+		PublicKey:      string(keyBytes.Bytes()[:]),
+		RawKeyPair:     optRaw,
+	}, nil
 }
 
 func (k KeyPair) SimpleIssuer() string {
@@ -125,12 +151,8 @@ func ReadKeyPair(filePath string) (*KeyPair, error) {
 		return nil, err
 	}
 
-	pathSegments := strings.Split(filePath, "/")
-	if len(pathSegments) == 0 {
-		return nil, fmt.Errorf("Unusable path segment for key: %v", pathSegments)
-	}
-
-	privatekey, err := sign.ReadPrivateKey(path.Join(pathSegments[len(pathSegments)-1], pkFilename))
+	privatekey, _ := sign.ReadPrivateKey(path.Join(strings.Join(pathParts[0:fileNameIndex], "/"), pkFilename))
+	// TODO: output error to user; we are ignoring it here b/c we don't want to fail and there isn't an error reporting mechanism in this lib besides returning
 
 	certPubkey, err := pubkeyFromCert(cert)
 	if err != nil {
@@ -145,6 +167,7 @@ func ReadKeyPair(filePath string) (*KeyPair, error) {
 	return &KeyPair{
 		SerialNumber:   cert.SerialNumber,
 		SubjectNames:   cert.Subject.Names,
+		PublicKey:      &certPubkey,
 		NotValidBefore: cert.NotBefore,
 		NotValidAfter:  cert.NotAfter,
 		Issuer:         cert.Issuer.Names,
