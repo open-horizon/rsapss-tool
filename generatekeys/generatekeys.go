@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/open-horizon/rsapss-tool/constants"
 	"golang.org/x/sys/unix"
+	"io"
 	"math"
 	"math/big"
 	"os"
@@ -88,6 +89,20 @@ func generateCertificate(cn string, organization string, certNotValidAfter time.
 	return &certRet{serial, certDerBytes}, nil
 }
 
+func ExportAsPEM(bytes []byte, blockType string, output io.Writer) error {
+
+	var certEnc = &pem.Block{
+		Type:    blockType,
+		Headers: nil,
+		Bytes:   bytes}
+
+	if err := pem.Encode(output, certEnc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Write writes a new keypair to the given outputDir. It avoids overwriting
 // existing keys of the same name.
 func Write(outputDir string, keyLength int, cn string, org string, certNotValidAfter time.Time) ([]string, error) {
@@ -115,11 +130,6 @@ func Write(outputDir string, keyLength int, cn string, org string, certNotValidA
 
 	fileOutPrefix := fmt.Sprintf("%s-%x-", orgFilenamePattern.ReplaceAllLiteralString(org, ""), certRet.serial)
 
-	var certEnc = &pem.Block{
-		Type:    "CERTIFICATE",
-		Headers: nil,
-		Bytes:   certRet.cert}
-
 	// x509 certificate with embedded RSA PSS pubkey
 	certPath, err := pathIsAvail(outputDir, fmt.Sprintf("%spublic.pem", fileOutPrefix))
 	if err != nil {
@@ -132,7 +142,7 @@ func Write(outputDir string, keyLength int, cn string, org string, certNotValidA
 	}
 	defer certOut.Close()
 
-	if err := pem.Encode(certOut, certEnc); err != nil {
+	if err := ExportAsPEM(certRet.cert, "CERTIFICATE", certOut); err != nil {
 		return empty, err
 	}
 

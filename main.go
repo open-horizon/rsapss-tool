@@ -145,14 +145,14 @@ func generateNewKeysAction(ctx *cli.Context) error {
 		return cli.NewExitError(fmt.Sprintf("Given directory path (%v) unusable", outputDir), 3)
 	}
 
-	// TODO: validate org and cn?
+	// TODO: validate org and cn content?
 	orgI := ctx.String("x509org")
 	if orgI == "" {
 		return cli.NewExitError("Required option 'x509org' not provided. Use the '--help' option for more information.", 3)
 	}
 
 	cnI := ctx.String("x509cn")
-	if orgI == "" {
+	if cnI == "" {
 		return cli.NewExitError("Required option 'x509cn' not provided. Use the '--help' option for more information.", 3)
 	}
 
