@@ -193,7 +193,7 @@ func setupTesting(t *testing.T) (string, []byte, []*KeyMapping, []*KeyMapping, [
 
 	validCert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		t.Errorf("Error setting up cert for test", err)
+		t.Errorf("Error setting up cert for test: %v", err)
 	}
 
 	validCertFilePath := path.Join(dir, validCert.SerialNumber.String())
@@ -354,7 +354,7 @@ func Test_InputVerifiedByAnyKey_Suite(t *testing.T) {
 			if verified, _, failed := InputVerifiedByAnyKey([]string{invalidCertPath}, validSig, someContent); verified {
 				t.Errorf("Signature reported as valid but shouldn't have been. Cert serial number: %v", cert[0].SerialNumber.String())
 			} else if len(failed) != 1 {
-				t.Error("Unexpected content returned for invalid cert: %v", failed)
+				t.Errorf("Unexpected content returned for invalid cert: %v", failed)
 			} else {
 				t.Logf("Expected error has message: %v", failed[invalidCertPath])
 			}
