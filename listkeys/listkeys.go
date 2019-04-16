@@ -103,14 +103,13 @@ func (k KeyPair) String() string {
 	return fmt.Sprintf("SerialNumber: %v, SubjectNames: %v, Issuer: %v, HavePrivateKey: %t", k.SerialOctet(), k.SubjectNames, k.SimpleIssuer(), k.HavePrivateKey)
 }
 
+// find the private key file name given the public key file name.
 func pkFilenameFromCertFilename(filename string) (string, error) {
-	split := strings.Split(filename, "-")
-	// TODO: check split content
-
-	if len(split) != 3 {
-		return "", fmt.Errorf("Cert filename not in expected format %v", filename)
+	privateKeyPath := ""
+	if strings.Contains(filename, "public.pem") {
+		privateKeyPath = strings.Replace(filename, "public.pem", "private.key", -1)
 	}
-	return fmt.Sprintf("%v-private.key", strings.Join(split[0:2], "-")), nil
+	return privateKeyPath, nil
 }
 
 // rips the rsapss pubkey out of the x509 cert
